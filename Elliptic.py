@@ -1,0 +1,137 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import scipy.integrate
+
+params = {'text.usetex' : True,
+          'font.size' : 11,
+          'font.family' : 'lmodern',
+          }
+plt.rcParams.update(params) 
+
+pts_to_inches = 1/72.27
+
+fig_width_inches = pts_to_inches*443.57848
+fig_height_inches = fig_width_inches*(-1+np.sqrt(5))/2
+
+##################################################
+
+
+epsilon=5e-2
+
+def A(y):
+    return 1 + 1/2*np.sin(2*np.pi*y)
+
+def f(x):
+    #return (np.pi**2*x**2 - 2)*np.sin(np.pi*x)-4*np.pi*x*np.cos(np.pi*x)
+    return 2*np.pi*x*(3*x-2)*np.cos(np.pi*x)-(np.pi**2*x**3-np.pi**2*x**2-6*x+2)*np.sin(np.pi*x)
+
+def u_exact(x):
+    return x**2*(1-x)*np.sin(np.pi*x)
+
+def u_0(x):
+    return 2/np.sqrt(3)*u_exact(x)
+
+def antideriv_of_1_over_A(y):
+    return -2/(np.pi*np.sqrt(3))*np.arctan((1+2*np.tan(np.pi*y)**(-1))/np.sqrt(3))
+
+y_integral = scipy.integrate.quad(antideriv_of_1_over_A,0,1)[0]
+
+c_2 = 1/2 - np.sqrt(3)/2*y_integral
+
+def chi(y):
+    return -y + np.sqrt(3)/2 * antideriv_of_1_over_A(y) + c_2
+
+y = np.linspace(0,1,50)
+plt.plot(y,chi(y))
+
+def u_1(x):
+    y = np.remainder(x/epsilon,1)-0.5
+    #return chi(y)*(4*x/np.sqrt(3)*np.sin(np.pi*x)+ 2*np.pi*x**2/np.sqrt(3)*np.cos(np.pi*x))
+    return chi(y)*2/np.sqrt(3)*x*((2-3*x)*np.sin(np.pi*x)+np.pi*(1-x)*x*np.cos(np.pi*x))
+              
+def rhs_full(x,z):
+    u,v = z
+    rhs=np.zeros_like(z)
+    rhs[0] = v/A(np.remainder(x/epsilon,1)-0.5)
+    rhs[1] = -f(x)
+    return rhs
+
+def bcs(ua,ub):
+    return np.array([ua[0],ub[0]])
+
+x_grid = np.linspace(0,1,5)
+u_grid = np.zeros((2,5))
+
+soln_full = scipy.integrate.solve_bvp(rhs_full,bcs,x_grid,u_grid,tol=1e-7)
+
+x=np.linspace(0,1,201)
+
+#figsize=(fig_width_inches,fig_height_inches)
+fig, ax = plt.subplots(2,2,figsize=(8,5))
+fig.subplots_adjust(top=0.8)
+plt.figure(1)
+ax[0,0].plot(x,soln_full.sol(x)[0,:],'-k',label=r'$u(x)$')
+ax[0,0].plot(x[::5],u_exact(x[::5]),'-.',c='b',label=r'$\tilde{u}(x)$')
+ax[0,0].set_xlabel(r'$x$')
+ax[0,0].set_ylabel(r'$u$')
+ax[0,0].grid()
+ax[0,0].set_title('Full and naive solutions')
+ax[0,0].legend()
+
+ax[0,1].plot(x,soln_full.sol(x)[0,:],'-k',label=r'$u(x)$')
+ax[0,1].plot(x,u_0(x),'-.r',label=r'$u_0(x)$')
+ax[0,1].plot(x,u_0(x) + epsilon*u_1(x),'--b',label=r'$u_0 + \varepsilon u_1$')
+ax[0,1].set_xlabel(r'$x$')
+ax[0,1].set_ylabel(r'$u$')
+ax[0,1].grid()
+ax[0,1].set_title('Full and average solutions')
+ax[0,1].legend()
+
+ax[1,0].plot(x,soln_full.sol(x)[0,:] - u_0(x),'-r',label=r'$u - u_0$')
+ax[1,0].set_xlabel(r'$x$')
+ax[1,0].set_ylabel(r'$u - u_0$')
+ax[1,0].grid()
+ax[1,0].legend()
+ax[1,0].set_title('Error in leading order solution')
+
+ax[1,1].plot(x,soln_full.sol(x)[0,:] - u_0(x) - epsilon*u_1(x),'--b',label=r'$u - (u_0 + \varepsilon u_1)$')
+ax[1,1].set_xlabel(r'$x$')
+ax[1,1].set_ylabel(r'$u - (u_0+ \varepsilon u_1)$')
+ax[1,1].grid()
+ax[1,1].legend()
+ax[1,1].set_title('Error in first order solution')
+plt.tight_layout()
+plt.suptitle(rf'$\varepsilon = {epsilon}$',y=1)
+plt.savefig("elliptic_figure1.pdf", format="pdf", bbox_inches="tight")
+
+
+epsilons = 1/2**np.arange(2,10)
+errors1 = np.zeros_like(epsilons)
+errors2 = np.zeros_like(epsilons)
+
+for i, epsilon in enumerate(epsilons):
+    x,dx=np.linspace(0,1,1001,retstep=True)
+    soln_full = scipy.integrate.solve_bvp(rhs_full,bcs,x_grid,u_grid,tol=1e-6,max_nodes=1e6)
+    errors1[i] = np.linalg.norm(abs(soln_full.sol(x)[0,:] - u_0(x)),1)*dx
+    errors2[i] = np.linalg.norm(abs(soln_full.sol(x)[0,:] - u_0(x)-epsilon*u_1(x)),1)*dx
+
+errors1_polyfit_coeffs = np.polyfit(np.log(epsilons),np.log(errors1),1)
+errors2_polyfit_coeffs = np.polyfit(np.log(epsilons),np.log(errors2),1)
+
+def errors1_polyfit(x):
+    return np.poly1d(errors1_polyfit_coeffs)(x)
+def errors2_polyfit(x):
+    return np.poly1d(errors2_polyfit_coeffs)(x)
+
+
+plt.figure(2,figsize=(fig_width_inches,fig_height_inches))
+plt.loglog(epsilons,np.exp(errors1_polyfit(np.log(epsilons))),'-r',label=rf'$\propto \varepsilon^{{{np.around(errors1_polyfit_coeffs[0],1)}}}$')
+plt.loglog(epsilons,np.exp(errors2_polyfit(np.log(epsilons))),'--',c='orange',label=rf'$\propto \varepsilon^{{{np.around(errors2_polyfit_coeffs[0],1)}}}$')
+plt.loglog(epsilons,errors1,'xk',label='Error at leading order')
+plt.loglog(epsilons,errors2,'.b',label='Error at first order')
+plt.xlabel(r'$\varepsilon$')
+plt.ylabel(r'$\left\Vert\mathrm{Error}\right\Vert_{1}$')
+plt.title(r'Error against $\varepsilon$')
+plt.legend()
+plt.savefig("elliptic_figure2.pdf", format="pdf", bbox_inches="tight")
+plt.show()
