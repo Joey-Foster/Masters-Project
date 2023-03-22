@@ -32,17 +32,17 @@ def u_0(x):
     return 2/np.sqrt(3)*u_exact(x)
 
 def antideriv_of_1_over_A(y):
-    return -2/(np.pi*np.sqrt(3))*np.arctan((1+2*np.tan(np.pi*y)**(-1))/np.sqrt(3))
+    return 2/(np.pi*np.sqrt(3))*np.arctan((1+2*np.tan(np.pi*y))/np.sqrt(3))
 
-y_integral = scipy.integrate.quad(antideriv_of_1_over_A,0,1)[0]
+y_integral = scipy.integrate.quad(antideriv_of_1_over_A,-0.5,0.5)[0]
 
-c_2 = 1/2 - np.sqrt(3)/2*y_integral
+c_2 = - np.sqrt(3)/2*y_integral
 
 def chi(y):
     return -y + np.sqrt(3)/2 * antideriv_of_1_over_A(y) + c_2
 
-y = np.linspace(0,1,50)
-plt.plot(y,chi(y))
+# y = np.linspace(0,1,50)
+# plt.plot(y,chi(y))
 
 def u_1(x):
     y = np.remainder(x/epsilon,1)-0.5
@@ -102,7 +102,7 @@ ax[1,1].legend()
 ax[1,1].set_title('Error in first order solution')
 plt.tight_layout()
 plt.suptitle(rf'$\varepsilon = {epsilon}$',y=1)
-plt.savefig("elliptic_figure1.pdf", format="pdf", bbox_inches="tight")
+#plt.savefig("elliptic_figure1.pdf", format="pdf", bbox_inches="tight")
 
 
 epsilons = 1/2**np.arange(2,10)
@@ -133,5 +133,5 @@ plt.xlabel(r'$\varepsilon$')
 plt.ylabel(r'$\left\Vert\mathrm{Error}\right\Vert_{1}$')
 plt.title(r'Error against $\varepsilon$')
 plt.legend()
-plt.savefig("elliptic_figure2.pdf", format="pdf", bbox_inches="tight")
+#plt.savefig("elliptic_figure2.pdf", format="pdf", bbox_inches="tight")
 plt.show()
