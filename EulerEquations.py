@@ -98,22 +98,19 @@ for i, epsilon in enumerate(epsilons):
 
     soln_first_order = scipy.integrate.solve_ivp(RHS_average,[0,1],[1,1],dense_output=True,rtol=1e-8,atol=1e-10, args=(epsilon,))
 
-    errors[i] = np.linalg.norm(soln_full.sol(t)[1,:] - soln_leading_order.sol(t)[1,:],1)
-    errors_first_order[i] = np.linalg.norm(soln_full.sol(t)[1,:] - soln_first_order.sol(t)[1,:],1)
+    errors[i] = np.linalg.norm(abs(soln_full.sol(t)[1,:] - soln_leading_order.sol(t)[1,:]),1)
+    errors_first_order[i] = np.linalg.norm(abs(soln_full.sol(t)[1,:] - soln_first_order.sol(t)[1,:]),1)
 
 errors_polyfit_coeffs = np.polyfit(np.log(epsilons),np.log(errors),1)
 
 errors_first_order_polyfit_coeffs = np.polyfit(np.log(epsilons),np.log(errors_first_order),1)
 
-def errors_polyfit(x):
-    return np.poly1d(errors_polyfit_coeffs)(x)
-
-def errors_first_order_polyfit(x):
-    return np.poly1d(errors_first_order_polyfit_coeffs)(x)
+def trendline(data,x):
+    return np.poly1d(data)(x)
 
 plt.figure(3,figsize=(fig_width_inches,fig_height_inches))
-plt.loglog(epsilons,np.exp(errors_polyfit(np.log(epsilons))),'-r',label=rf'$\propto \varepsilon^{{{np.around(errors_polyfit_coeffs[0],1)}}}$')
-plt.loglog(epsilons,np.exp(errors_first_order_polyfit(np.log(epsilons))),'--',c='orange',label=rf'$\propto \varepsilon^{{{np.around(errors_first_order_polyfit_coeffs[0],1)}}}$')
+plt.loglog(epsilons,np.exp(trendline(errors_polyfit_coeffs,np.log(epsilons))),'-r',label=rf'$\propto \varepsilon^{{{np.around(errors_polyfit_coeffs[0],1)}}}$')
+plt.loglog(epsilons,np.exp(trendline(errors_first_order_polyfit_coeffs,np.log(epsilons))),'--',c='orange',label=rf'$\propto \varepsilon^{{{np.around(errors_first_order_polyfit_coeffs[0],1)}}}$')
 plt.loglog(epsilons, errors, 'x',lw=2,label='Error at leading order',c='k')
 plt.loglog(epsilons,errors_first_order,'.',label='Error at first order',c='b')
 plt.xlabel(r'$\varepsilon$')
@@ -201,15 +198,12 @@ for i, epsilon in enumerate(epsilons):
 
     soln_cycle = scipy.integrate.solve_ivp(RHS_cycle,[0,1],[1,1,2/5,2/5],dense_output=True,rtol=1e-8,atol=1e-10, args=(epsilon,)) 
 
-    errors[i] = np.linalg.norm(soln_cycle.sol(t)[1,:] - soln_leading_order.sol(t)[1,:],1)
+    errors[i] = np.linalg.norm(abs(soln_cycle.sol(t)[1,:] - soln_leading_order.sol(t)[1,:]),1)
 
 errors_polyfit_coeffs = np.polyfit(np.log(epsilons),np.log(errors),1)
 
-def errors_cycle_polyfit(x):
-    return np.poly1d(errors_polyfit_coeffs)(x)
-
 plt.figure(6,figsize=(fig_width_inches,fig_height_inches))
-plt.loglog(epsilons,np.exp(errors_cycle_polyfit(np.log(epsilons))),c='r',label=rf'$\propto \varepsilon^{{{np.around(errors_polyfit_coeffs[0],1)}}}$')
+plt.loglog(epsilons,np.exp(trendline(errors_polyfit_coeffs,np.log(epsilons))),c='r',label=rf'$\propto \varepsilon^{{{np.around(errors_polyfit_coeffs[0],1)}}}$')
 plt.loglog(epsilons, errors, 'x',lw=2,label='Error at leading order',c='k')
 plt.xlabel(r'$\varepsilon$')
 plt.ylabel(r'$\left\Vert\mathrm{Error}\right\Vert_{1}$')
@@ -217,5 +211,202 @@ plt.title(r'Error against $\varepsilon$')
 plt.legend()
 plt.tight_layout()
 plt.savefig("figure6.pdf", format="pdf", bbox_inches="tight")
+
+##############################
+#boundary layers
+
+epsilon = 1e-2
+
+rho_0 = 1
+e_0 = 1
+Y_0 = 1
+
+e_0_correction = theta/rho_0*epsilon*(Y_0-Y_eq(rho_0,e_0))*(rho_0*e_0)/(-e_0)
+
+soln_full = scipy.integrate.solve_ivp(RHS_full,[0,1],[rho_0,e_0,Y_0],dense_output=True, args=(epsilon,))
+soln_leading_order = scipy.integrate.solve_ivp(RHS_average,[0,1],[rho_0,e_0],dense_output=True,rtol=1e-6,atol=1e-8, args=(0,))
+soln_first_order = scipy.integrate.solve_ivp(RHS_average,[0,1],[rho_0,e_0],dense_output=True, args=(epsilon,))
+
+fig, axes = plt.subplots(2,2,figsize=(8,5))
+plt.figure(7)
+axes[0,0].plot(t,soln_full.sol(t)[1,:],c='black',label=r'$e$')
+axes[0,0].plot(t,soln_leading_order.sol(t)[1,:],'-.',c='red',label=r'$\bar{e}_{\mathrm{leading \; order}}$')
+axes[0,0].set_xlabel(r'$t$')
+axes[0,0].set_ylabel(r'$e$')
+axes[0,0].set_xlim(0,1)
+axes[0,0].grid()
+axes[0,0].set_title('Full and leading order averaged solutions')
+axes[0,0].legend()
+
+axes[0,1].plot(t,soln_full.sol(t)[1,:],c='black',label=r'$e$')
+axes[0,1].plot(t,soln_first_order.sol(t)[1,:],'--',c='blue',label=r'$\bar{e}_{\mathrm{first \; order}}$')
+axes[0,1].set_xlabel(r'$t$')
+axes[0,1].set_ylabel(r'$e$')
+axes[0,1].set_xlim(0,1)
+axes[0,1].grid()
+axes[0,1].set_title('Full and first order averaged solutions')
+axes[0,1].legend()
+
+leading_difference = soln_full.sol(t)[1,:] - soln_leading_order.sol(t)[1,:]
+first_order_difference = soln_full.sol(t)[1,:] - soln_first_order.sol(t)[1,:]
+
+axes[1,0].plot(t,leading_difference,'-.',c='red',label=r'$e - \bar{e}_{\mathrm{leading \; order}}$')
+axes[1,0].set_xlabel(r'$t$')
+axes[1,0].set_ylabel(r'$e - \bar{e}$')
+axes[1,0].set_xlim(0,1)
+axes[1,0].grid()
+axes[1,0].set_title('Error in leading order solution')
+
+axes[1,1].plot(t,first_order_difference,'--',c='blue',label=r'$e - \bar{e}_{\mathrm{first \; order}}$')
+axes[1,1].set_xlabel(r'$t$')
+axes[1,1].set_ylabel(r'$e - \bar{e}$')
+axes[1,1].set_xlim(0,1)
+axes[1,1].grid()
+axes[1,1].set_title('Error in first order solution')
+plt.suptitle(rf'$e(t)$ and its averages with $Y(0)$ = {Y_0}, at $\varepsilon = {epsilon}$')
+
+plt.tight_layout()
+plt.savefig("figure7.pdf", format="pdf", bbox_inches="tight")
+
+epsilons = 0.1/2**np.arange(1,7)
+errors = np.zeros_like(epsilons)
+errors_first_order = np.zeros_like(epsilons)
+
+for i, epsilon in enumerate(epsilons):
+
+    soln_full = scipy.integrate.solve_ivp(RHS_full,[0,1],[rho_0,e_0,Y_0],dense_output=True,rtol=1e-10,atol=1e-12, args=(epsilon,)) 
+    soln_first_order = scipy.integrate.solve_ivp(RHS_average,[0,1],[rho_0,e_0],dense_output=True,rtol=1e-10,atol=1e-12, args=(epsilon,))
+
+    errors[i] = np.linalg.norm(abs(soln_full.sol(t)[1,:] - soln_leading_order.sol(t)[1,:]),1)
+    errors_first_order[i] = np.linalg.norm(abs(soln_full.sol(t)[1,:] - soln_first_order.sol(t)[1,:]),1)
+
+errors_polyfit_coeffs = np.polyfit(np.log(epsilons),np.log(errors),1)
+
+errors_first_order_polyfit_coeffs = np.polyfit(np.log(epsilons),np.log(errors_first_order),1)
+
+plt.figure(8,figsize=(fig_width_inches,fig_height_inches))
+plt.loglog(epsilons,np.exp(trendline(errors_polyfit_coeffs,np.log(epsilons))),'-r',label=rf'$\propto \varepsilon^{{{np.around(errors_polyfit_coeffs[0],1)}}}$')
+plt.loglog(epsilons,np.exp(trendline(errors_first_order_polyfit_coeffs,np.log(epsilons))),'--',c='orange',label=rf'$\propto \varepsilon^{{{np.around(errors_first_order_polyfit_coeffs[0],1)}}}$')
+plt.loglog(epsilons, errors, 'x',lw=2,label='Error at leading order',c='k')
+plt.loglog(epsilons,errors_first_order,'.',label='Error at first order',c='b')
+plt.xlabel(r'$\varepsilon$')
+plt.ylabel(r'$\left\Vert\mathrm{Error}\right\Vert_{1}$')
+plt.title(r'Error against $\varepsilon$')
+plt.legend()
+plt.savefig("figure8.pdf", format="pdf", bbox_inches="tight")
+
+
+epsilon=1e-2
+
+bl_soln_full = scipy.integrate.solve_ivp(RHS_full,[0,1],[rho_0,e_0,Y_0],dense_output=True, args=(epsilon,))
+bl_soln_leading_order = scipy.integrate.solve_ivp(RHS_average,[0,1],[rho_0,e_0+e_0_correction],dense_output=True,rtol=1e-6,atol=1e-8, args=(0,))
+bl_soln_first_order = scipy.integrate.solve_ivp(RHS_average,[0,1],[rho_0,e_0+e_0_correction],dense_output=True, args=(epsilon,))
+
+fig, axes = plt.subplots(2,2,figsize=(8,5))
+plt.figure(9)
+axes[0,0].plot(t,bl_soln_full.sol(t)[1,:],c='black',label=r'$e$')
+axes[0,0].plot(t,bl_soln_leading_order.sol(t)[1,:],'-.',c='red',label=r'$\bar{e}_{\mathrm{leading \; order}}$')
+axes[0,0].set_xlabel(r'$t$')
+axes[0,0].set_ylabel(r'$e$')
+axes[0,0].set_xlim(0,1)
+axes[0,0].grid()
+axes[0,0].set_title('Full and leading order averaged solutions')
+axes[0,0].legend()
+
+axes[0,1].plot(t,bl_soln_full.sol(t)[1,:],c='black',label=r'$e$')
+axes[0,1].plot(t,bl_soln_first_order.sol(t)[1,:],'--',c='blue',label=r'$\bar{e}_{\mathrm{first \; order}}$')
+axes[0,1].set_xlabel(r'$t$')
+axes[0,1].set_ylabel(r'$e$')
+axes[0,1].set_xlim(0,1)
+axes[0,1].grid()
+axes[0,1].set_title('Full and first order averaged solutions')
+axes[0,1].legend()
+
+leading_difference = bl_soln_full.sol(t)[1,:] - bl_soln_leading_order.sol(t)[1,:]
+first_order_difference = bl_soln_full.sol(t)[1,:] - bl_soln_first_order.sol(t)[1,:]
+
+axes[1,0].plot(t,leading_difference,'-.',c='red',label=r'$e - \bar{e}_{\mathrm{leading \; order}}$')
+axes[1,0].set_xlabel(r'$t$')
+axes[1,0].set_ylabel(r'$e - \bar{e}$')
+axes[1,0].set_xlim(0,1)
+axes[1,0].grid()
+axes[1,0].set_title('Error in leading order solution')
+
+axes[1,1].plot(t,first_order_difference,'--',c='blue',label=r'$e - \bar{e}_{\mathrm{first \; order}}$')
+axes[1,1].set_xlabel(r'$t$')
+axes[1,1].set_ylabel(r'$e - \bar{e}$')
+axes[1,1].set_xlim(0,1)
+axes[1,1].grid()
+axes[1,1].set_title('Error in first order solution')
+plt.suptitle(rf'$e(t)$ and its boundary-layer-corrected averages with $Y(0) = {Y_0}$, at $\varepsilon = {epsilon}$')
+
+plt.tight_layout()
+plt.savefig("figure9.pdf", format="pdf", bbox_inches="tight")
+
+
+epsilons = 0.1/2**np.arange(1,7)
+errors = np.zeros_like(epsilons)
+errors_first_order = np.zeros_like(epsilons)
+
+for i, epsilon in enumerate(epsilons):
+
+    e_0_correction = theta/rho_0*epsilon*(Y_0-Y_eq(rho_0,e_0))*(rho_0*e_0)/(-e_0)
+
+    bl_soln_full = scipy.integrate.solve_ivp(RHS_full,[0,1],[rho_0,e_0,Y_0],dense_output=True,rtol=1e-10,atol=1e-12, args=(epsilon,)) 
+    bl_soln_leading_order = scipy.integrate.solve_ivp(RHS_average,[0,1],[rho_0,e_0+e_0_correction],dense_output=True,rtol=1e-8,atol=1e-10, args=(0,))
+    bl_soln_first_order = scipy.integrate.solve_ivp(RHS_average,[0,1],[rho_0,e_0+e_0_correction],dense_output=True,rtol=1e-10,atol=1e-12, args=(epsilon,))
+
+    errors[i] = np.linalg.norm(abs(bl_soln_full.sol(t)[1,:] - bl_soln_leading_order.sol(t)[1,:]),1)
+    errors_first_order[i] = np.linalg.norm(abs(bl_soln_full.sol(t)[1,:] - bl_soln_first_order.sol(t)[1,:]),1)
+
+errors_polyfit_coeffs = np.polyfit(np.log(epsilons),np.log(errors),1)
+
+errors_first_order_polyfit_coeffs = np.polyfit(np.log(epsilons),np.log(errors_first_order),1)
+
+plt.figure(10,figsize=(fig_width_inches,fig_height_inches))
+plt.loglog(epsilons,np.exp(trendline(errors_polyfit_coeffs,np.log(epsilons))),'-r',label=rf'$\propto \varepsilon^{{{np.around(errors_polyfit_coeffs[0],1)}}}$')
+plt.loglog(epsilons,np.exp(trendline(errors_first_order_polyfit_coeffs,np.log(epsilons))),'--',c='orange',label=rf'$\propto \varepsilon^{{{np.around(errors_first_order_polyfit_coeffs[0],1)}}}$')
+plt.loglog(epsilons, errors, 'x',lw=2,label='Error at leading order',c='k')
+plt.loglog(epsilons,errors_first_order,'.',label='Error at first order',c='b')
+plt.xlabel(r'$\varepsilon$')
+plt.ylabel(r'$\left\Vert\mathrm{Error}\right\Vert_{1}$')
+plt.title(r'Error against $\varepsilon$')
+plt.legend()
+plt.savefig("figure10.pdf", format="pdf", bbox_inches="tight")
+
+
+Y_0s = np.linspace(0.2,0.5,100)
+error_exponent = np.zeros_like(Y_0s)
+bl_error_exponent = np.zeros_like(Y_0s)
+for i, Y_0 in enumerate(Y_0s):
+    epsilons = 0.1/2**np.arange(1,7)
+    errors_first_order = np.zeros_like(epsilons)
+    bl_errors_first_order = np.zeros_like(epsilons)
+    for j, epsilon in enumerate(epsilons):
+
+        e_0_correction = theta/rho_0*epsilon*(Y_0-Y_eq(rho_0,e_0))*(rho_0*e_0)/(-e_0)
+
+        bl_soln_full = scipy.integrate.solve_ivp(RHS_full,[0,1],[rho_0,e_0,Y_0],dense_output=True,rtol=1e-10,atol=1e-12, args=(epsilon,)) 
+        soln_first_order = scipy.integrate.solve_ivp(RHS_average,[0,1],[rho_0,e_0],dense_output=True,rtol=1e-10,atol=1e-12, args=(epsilon,))
+        bl_soln_first_order = scipy.integrate.solve_ivp(RHS_average,[0,1],[rho_0,e_0+e_0_correction],dense_output=True,rtol=1e-10,atol=1e-12, args=(epsilon,))
+
+        errors_first_order[j] = np.linalg.norm(abs(bl_soln_full.sol(t)[1,:] - soln_first_order.sol(t)[1,:]),1)
+        bl_errors_first_order[j] = np.linalg.norm(abs(bl_soln_full.sol(t)[1,:] - bl_soln_first_order.sol(t)[1,:]),1)
+
+
+    error_exponent[i] = np.polyfit(np.log(epsilons),np.log(errors_first_order),1)[0]
+    bl_error_exponent[i] = np.polyfit(np.log(epsilons),np.log(bl_errors_first_order),1)[0]
+
+
+plt.figure(11,figsize=(fig_width_inches,fig_height_inches))
+plt.plot(Y_0s,error_exponent,'-k',label='No BL correction')
+plt.plot(Y_0s,bl_error_exponent,'--b',label='BL correction')
+plt.xlabel(r'$Y(0)$')
+plt.ylabel(r'$\log_{\varepsilon}\left(\left\Vert\mathrm{Error}\right\Vert_{1}\right)$')
+plt.grid()
+plt.xlim(0.2,0.5)
+plt.legend()
+plt.title(r'The exponent of the first order error growth with $\varepsilon$ as a function of $Y(0)$')
+plt.savefig("figure11.pdf", format="pdf", bbox_inches="tight")
 
 plt.show()
